@@ -1,0 +1,25 @@
+[tool.poetry]
+name = "crawler"
+version = "0.1.0"
+description = ""
+authors = ["zhangfish <noumi_kudryavka@foxmail.com>"]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+grpcio-tools = "^1.68.1"
+grpcio = "^1.68.1"
+pyjwt = "^2.10.1"
+loguru = "^0.7.3"
+sqlalchemy = "^2.0.36"
+mysql-connector-python = "^9.1.0"
+lxml = "^5.3.0"
+urllib3 = "^2.2.3"
+tencentcloud-sdk-python = "^3.0.1281"
+pydantic = "^2.10.3"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
