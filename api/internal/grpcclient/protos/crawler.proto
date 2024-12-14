@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package com.github.sztuea.grpc.crawler.v1;
+
+option go_package = "./protos";
+
+service Crawler {
+    rpc GetCookie(GetCookieRequest) returns (GetCookieResponse) {}
+}
+
+message GetCookieRequest {
+    string account = 1;
+    string password = 2;
+}
+
+message GetCookieResponse {
+    string cookie = 1;
+}

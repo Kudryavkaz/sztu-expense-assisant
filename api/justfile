@@ -1,0 +1,2 @@
+grpc:
+    protoc --proto_path=internal/grpcclient --go_out=internal/grpcclient --go-grpc_out=internal/grpcclient  internal/grpcclient/protos/crawler.proto
