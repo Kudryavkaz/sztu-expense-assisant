@@ -7,7 +7,7 @@ http:
         - web
 
   services:
-    text2solution-api-v1:
+    sztuea-api-v1:
       loadBalancer:
         servers:
           - url: http://sztuea-api:3000/v1
