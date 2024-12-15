@@ -15,16 +15,11 @@ import (
 	"go.uber.org/zap"
 )
 
-// Rdb redis client
 var (
 	Rdb *redis.Client
 	Rs  *redsync.Redsync
 )
 
-// InitRedis 初始化redis连接
-//
-//	@author 鹿鹿鹿鲨
-//	@update 2023-09-27 12:36:02
 func InitRedis() {
 	Rdb = redis.NewClient(&redis.Options{
 		Addr:     fmt.Sprintf("%s:%d", config.Config.GetString("redis.host"), config.Config.GetInt("redis.port")),

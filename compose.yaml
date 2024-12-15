@@ -1,0 +1,161 @@
+version: '3'
+
+services:
+  traefik:
+    image: traefik:v2.2
+    container_name: sztuea-traefik
+    privileged: true
+    command:
+      - --ping=true
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --api.dashboard=true
+      - --api.insecure=true
+      - --providers.docker=true
+      - --providers.file.directory=/etc/traefik
+      - --providers.file.watch=true
+      - --accesslog=true
+      - --accesslog.filepath=/logs/access.log
+      - --accesslog.format=json
+      - --log=true
+      - --log.level=INFO
+      - --log.filepath=/logs/traefik.log
+      - --log.format=json
+      - --certificatesresolvers.le.acme.httpchallenge.entrypoint=web
+      - --certificatesresolvers.le.acme.email=noumi_kudryavka@foxmail.com
+      - --certificatesresolvers.le.acme.storage=acme.json
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - DOMAIN_NAME=${DOMAIN_NAME}
+    healthcheck:
+      test: ["CMD-SHELL", "traefik healthcheck --ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+    volumes:
+      - ./config/traefik/:/etc/traefik/
+      - ./config/acme.json:/acme.json
+      - ./logs:/logs
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      sztuea-api:
+        condition: service_healthy
+
+  redis:
+    image: redis/redis-stack-server:latest
+    container_name: sztuea-redis
+    privileged: true
+    pid: "host"
+    volumes:
+      - sztuea-redis-data:/data
+      - ./config/redis.conf:/redis-stack.conf
+    healthcheck:
+      interval: 5s
+      retries: 5
+      start_period: 5s
+      test:
+        - CMD-SHELL
+        - redis-cli -a mypassword ping | grep PONG
+      timeout: 3s
+    labels:
+      - traefik.enable=false
+    environment:
+      - REDIS_PASSWORD=mypassword
+
+  mysql:
+    image: mysql:latest
+    container_name: sztuea-mysql
+    privileged: true
+    volumes:
+      - sztuea-mysql-data:/var/lib/mysql
+    healthcheck:
+      test: [ "CMD-SHELL", "mysqladmin ping -h localhost -u$$MYSQL_USER -p$$MYSQL_PASSWORD" ]
+      interval: 5s
+      retries: 10
+    environment:
+      - MYSQL_ROOT_PASSWORD=mypassword
+      - MYSQL_USER=user
+      - MYSQL_DATABASE=sztuea
+      - MYSQL_PASSWORD=user_pasword
+
+  gorm-migrate:
+    image: sztuea-api:0.1.0
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: gorm-migrate
+    privileged: true
+    restart: on-failure:3
+    pid: "host"
+    command: ./api migrate
+    env_file:
+      - ./secret/api.env
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  sztuea-api:
+    image: sztuea-api:0.1.0
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: sztuea-api
+    privileged: true
+    restart: always
+    pid: "host"
+    command: './api start'
+    environment:
+      - DOMAIN_NAME=${DOMAIN_NAME}
+    env_file:
+      - ./secret/api.env
+    healthcheck:
+      test: ["CMD-SHELL", "./api healthcheck --port=3000"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+    depends_on:
+      redis:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
+      sztuea-crawler:
+        condition: service_healthy
+      gorm-migrate:
+        condition: service_completed_successfully
+
+  sztuea-crawler:
+    image: sztuea-crawler:0.1.0
+    build:
+      context: ./crawler
+      dockerfile: Dockerfile
+    container_name: sztuea-crawler
+    privileged: true
+    restart: always
+    command: ["poetry", "run", "python", "-u", "main.py"]
+    healthcheck:
+      test: ["CMD-SHELL", "chmod +x tools/grpc_health_probe && tools/grpc_health_probe -addr=localhost:50051"]
+      interval: 10s
+      timeout: 10s
+      retries: 3
+    ports:
+      - 50051:50051
+    volumes:
+      - ./tools:/app/tools
+    env_file:
+      - ./secret/crawler.env
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      gorm-migrate:
+        condition: service_completed_successfully
+
+
+volumes:
+  sztuea-mysql-data:
+    name: "sztuea-mysql-data"
+  sztuea-redis-data:
+    name: "sztuea-redis-data"

@@ -1,0 +1,13 @@
+http:
+  routers:
+    web-http-router:
+      service: enterprise-web
+      rule: Host(`{{env "DOMAIN_NAME"}}`)
+      entryPoints:
+        - web
+
+  services:
+    enterprise-web:
+      loadBalancer:
+        servers:
+          - url: http://web-frontend

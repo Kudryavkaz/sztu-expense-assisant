@@ -1,0 +1,13 @@
+http:
+  routers:
+    api-http-router-v1:
+      service: sztuea-api-v1
+      rule: PathPrefix(`/v1`) && Host(`{{env "DOMAIN_NAME"}}`)
+      entryPoints:
+        - web
+
+  services:
+    text2solution-api-v1:
+      loadBalancer:
+        servers:
+          - url: http://sztuea-api:3000/v1

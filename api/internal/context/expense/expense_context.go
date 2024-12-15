@@ -17,8 +17,32 @@ import (
 	"go.uber.org/zap"
 )
 
+type Table struct {
+	ExpenseInfoList []SimpleExpense `json:"expense_info_list"`
+}
+
+type SimpleExpense struct {
+	Action      string  `json:"action"`
+	ExpenseTime string  `json:"expense_time"`
+	Place       string  `json:"place"`
+	Amount      float64 `json:"amount"`
+}
+
+type TimeLineChart struct {
+	ExpenseInfoList []SimpleTimeExpenseInfo `json:"expense_info_list"`
+}
+
+type SimpleTimeExpenseInfo struct {
+	ExpenseTime string  `json:"expense_time"`
+	Amount      float64 `json:"amount"`
+}
+
 type Base struct {
-	userID uint
+	userID    uint
+	startTime int64
+	endTime   int64
+	place     string
+	action    string
 }
 
 type Context struct {

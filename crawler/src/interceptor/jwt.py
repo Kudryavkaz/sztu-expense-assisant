@@ -16,6 +16,10 @@ class JwtInterceptor(ServerInterceptor):
     async def intercept_service(
         self, continuation: Callable[[HandlerCallDetails], Awaitable[RpcMethodHandler]], handler_call_details: HandlerCallDetails
     ) -> RpcMethodHandler:
+        method: str = handler_call_details.method  # type: ignore
+        if method.split("/")[-1] in METHOD_WHITE_LIST:
+            return await continuation(handler_call_details)
+
         self._validate_request(handler_call_details)
         return await continuation(handler_call_details)
 

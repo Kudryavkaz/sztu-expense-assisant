@@ -51,3 +51,51 @@ func GetLatestExpenseByUserID(userID uint) (timeStamp int64, err error) {
 
 	return
 }
+
+func (e *Expense) GetExpensesByTimeRange(startTime int64, endTime int64) (expenses Expenses, err error) {
+	err = database.DB.Where("finish_time >= ? AND finish_time <= ?", startTime, endTime).Where(e).Find(&expenses).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		err = nil
+	}
+
+	return
+}
+
+type ExpenseTimeLine struct {
+	EventDate string  `json:"event_date"`
+	Amount    float64 `json:"amount"`
+}
+
+func (e *Expense) GetExpenseTimeLine(startTime int64, endTime int64) (expenseTimeLines []*ExpenseTimeLine, err error) {
+	expenseTimeLines = make([]*ExpenseTimeLine, 0)
+	duration := (float64)(endTime-startTime) / (1000 * 24 * 60 * 60)
+	if duration > 30 {
+		// week
+		err = database.DB.Debug().
+			Model(&Expense{}).
+			Select(`STR_TO_DATE(CONCAT(YEARWEEK(FROM_UNIXTIME(finish_time/1000), 1), ' Monday'), '%X%V %W') as event_date, SUM(amount) AS amount`).
+			Where("amount < 0 AND finish_time >= ? AND finish_time <= ?", startTime, endTime).
+			Where(e).
+			Group("event_date").
+			Find(&expenseTimeLines).Error
+	} else if duration > 1 {
+		// day
+		err = database.DB.Debug().
+			Model(&Expense{}).
+			Select(`DATE(FROM_UNIXTIME(finish_time/1000)) as event_date, SUM(amount) AS amount`).
+			Where("amount < 0 AND finish_time >= ? AND finish_time <= ?", startTime, endTime).
+			Where(e).
+			Group("event_date").
+			Find(&expenseTimeLines).Error
+	} else {
+		// hour
+		err = database.DB.Debug().
+			Model(&Expense{}).
+			Select(`DATE_FORMAT(FROM_UNIXTIME(finish_time/1000), '%Y-%m-%d %H:00:00') as event_date, SUM(amount) AS amount`).
+			Where("amount < 0 AND finish_time >= ? AND finish_time <= ?", startTime, endTime).
+			Where(e).
+			Group("event_date").
+			Find(&expenseTimeLines).Error
+	}
+	return
+}
