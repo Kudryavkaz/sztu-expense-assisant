@@ -20,7 +20,7 @@ func GenerateToken(id uint) (string, error) {
 		Authorized: true,
 		UserID:     id,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Duration(config.Config.GetInt("middleware.token_expired")) * time.Hour)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Duration(config.Config.GetInt("middleware.token.expired")) * time.Hour)),
 		},
 	}
 
