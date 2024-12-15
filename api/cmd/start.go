@@ -2,7 +2,9 @@ package cmd
 
 import (
 	"github.com/Kudryavkaz/sztuea-api/internal/api"
-	"github.com/samber/lo"
+	"github.com/Kudryavkaz/sztuea-api/internal/log"
+	"github.com/Kudryavkaz/sztuea-api/internal/resource/cache"
+	"github.com/Kudryavkaz/sztuea-api/internal/resource/database"
 	"github.com/spf13/cobra"
 )
 
@@ -16,7 +18,14 @@ var startCmd = &cobra.Command{
 	Short:   "Start the HTTP server",
 	Example: "sztuea-api start --port 3000",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		lo.Must0(api.StartSever(port, prefork))
+		database.InitDatabase()
+
+		cache.InitRedis()
+
+		if err := api.StartSever(port, prefork); err != nil {
+			log.Logger().Error("Failed to start the server")
+			panic(err)
+		}
 
 		return nil
 	},
@@ -26,5 +35,5 @@ func init() {
 	rootCmd.AddCommand(startCmd)
 
 	startCmd.Flags().Uint16VarP(&port, "port", "p", 3000, "Server Port")
-	startCmd.Flags().BoolVar(&prefork, "prefork", true, "Use of the SO_REUSEPORT socket option")
+	startCmd.Flags().BoolVar(&prefork, "prefork", false, "Use of the SO_REUSEPORT socket option")
 }

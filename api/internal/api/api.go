@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	_v1 "github.com/Kudryavkaz/sztuea-api/internal/api/handler/v1"
 	"github.com/Kudryavkaz/sztuea-api/internal/context/api"
 	"github.com/Kudryavkaz/sztuea-api/internal/log"
 	"github.com/gofiber/fiber/v2"
@@ -35,8 +36,7 @@ func StartSever(port uint16, prefork bool) (err error) {
 
 	app.Use(recover.New())
 
-	v1 := app.Group("/v1")
-	InitRouter(v1)
+	InitRouter(app)
 
 	err = app.Listen(fmt.Sprintf(":%d", port))
 	if err != nil {
@@ -67,5 +67,13 @@ func errHandler(ctx *fiber.Ctx, err error) error {
 	return nil
 }
 
-func InitRouter(router fiber.Router) {
+func InitRouter(app *fiber.App) {
+	app.Get("/ping", func(c *fiber.Ctx) error {
+		return c.SendString("pong")
+	})
+
+	v1 := app.Group("/v1")
+	_v1.InitLoginRouter(v1)
+	_v1.InitUserRouter(v1)
+	_v1.InitExpenseRouter(v1)
 }

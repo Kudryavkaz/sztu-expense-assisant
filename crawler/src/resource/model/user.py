@@ -1,7 +1,6 @@
 from datetime import datetime
 
 from sqlalchemy import BigInteger, Column, DateTime, String
-from sqlalchemy.orm import relationship
 
 from src.resource.model.base import Base
 
@@ -13,11 +12,8 @@ class User(Base):
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
     deleted_at = Column(DateTime)
     id = Column(BigInteger, primary_key=True)
-    name = Column(String(255), nullable=False)
-    email = Column(String(255), unique=True)
-    avatar = Column(String)
-    points = Column(BigInteger)
-    tof4_bind_id = Column(String(255), nullable=True, unique=True)
-    uin_bind_id = Column(String(255), nullable=True, unique=True)
-    credentials = relationship("Credential", back_populates="User")
-    user_groups = relationship("UserGroup", secondary="user_groups_users", back_populates="users")
+    account = Column(String(127), unique=True)
+    password = Column(String(255), nullable=False)
+    sztu_password = Column(String(63))
+    sztu_accountn = Column(String(63))
+    cookie = Column(String(255))

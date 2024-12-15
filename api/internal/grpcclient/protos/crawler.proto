@@ -5,7 +5,7 @@ package com.github.sztuea.grpc.crawler.v1;
 option go_package = "./protos";
 
 service Crawler {
-    rpc GetCookie(GetCookieRequest) returns (GetCookieResponse) {}
+    rpc GetCookie(GetCookieRequest) returns (GetCookieResponse);
 }
 
 message GetCookieRequest {

@@ -26,7 +26,7 @@ func init() {
 		grpc.WithKeepaliveParams(keepaliveParams),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	}
-	conn, err := grpc.NewClient(fmt.Sprintf("%s:%s", config.Config.GetString("grpc_client.address"), config.Config.GetString("grpc_client.port")), opts...)
+	conn, err := grpc.NewClient(fmt.Sprintf("%s:%s", config.Config.GetString("grpc.client.address"), config.Config.GetString("grpc.client.port")), opts...)
 	if err != nil {
 		log.Logger().Error("[grpcclient] grpc.Dial", zap.Error(err))
 	}
