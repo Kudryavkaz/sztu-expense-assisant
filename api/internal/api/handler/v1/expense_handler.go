@@ -11,7 +11,7 @@ const (
 
 func InitExpenseRouter(router fiber.Router) {
 	expenseRouterGroup := router.Group(expensePrefix)
-	expenseRouterGroup.Use(Authorization)
+	// expenseRouterGroup.Use(Authorization)
 	expenseRouterGroup.Get("/data", pullExpense)
 	expenseRouterGroup.Get("/table", queryTable)
 	expenseRouterGroup.Get("/timeline", queryTimeLine)

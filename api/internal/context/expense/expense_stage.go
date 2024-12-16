@@ -14,27 +14,40 @@ import (
 )
 
 func (expenseCtx *Context) ParsePullRequest(ctx context.Context) (needBreak bool, errMsg string, err error) {
+	var request struct {
+		SztuAccount  string `json:"sztu_account"`
+		SztuPassword string `json:"sztu_password"`
+	}
 	body := expenseCtx.FCtx.Body()
-	if body != nil {
+	if err = json.Unmarshal(body, &request); err != nil {
+		log.Logger().Error("[ParseQueryRequest] Unmarshal Fail", zap.Error(err))
 		needBreak = true
 		expenseCtx.APIError = api.ErrParseRequest
 		return
 	}
 
-	expenseCtx.userID = expenseCtx.FCtx.Locals("userID").(uint)
+	// expenseCtx.userID = expenseCtx.FCtx.Locals("userID").(uint)
+	expenseCtx.sztuAccount = request.SztuAccount
+	expenseCtx.sztuPassword = request.SztuPassword
 
 	return
 }
 
 func (expenseCtx *Context) CheckPullFields(ctx context.Context) (needBreak bool, errMsg string, err error) {
+	if expenseCtx.sztuAccount == "" || expenseCtx.sztuPassword == "" {
+		needBreak = true
+		expenseCtx.APIError = api.ErrParseRequest
+		return
+	}
+
 	return
 }
 
 func (expenseCtx *Context) Pull(ctx context.Context) (needBreak bool, errMsg string, err error) {
-	cookie, err := GetCookie(expenseCtx.userID)
+	cookie, err := GetCookie(expenseCtx.sztuAccount, expenseCtx.sztuPassword)
 	log.Logger().Info("[Pull]", zap.String("cookie", cookie))
 
-	mu, err := lock.GetLock(fmt.Sprintf("userID$%d", expenseCtx.userID), 1, time.Minute)
+	mu, err := lock.GetLock(fmt.Sprintf("sno$%s", expenseCtx.sztuAccount), 1, time.Minute)
 	if err != nil {
 		log.Logger().Error("[Pull] GetLock Fail", zap.Error(err))
 		needBreak = true
@@ -43,7 +56,7 @@ func (expenseCtx *Context) Pull(ctx context.Context) (needBreak bool, errMsg str
 	}
 	defer mu.Release()
 
-	latestExpenseTime, err := model.GetLatestExpenseByUserID(expenseCtx.userID)
+	latestExpenseTime, err := model.GetLatestExpenseBySno(expenseCtx.sztuAccount)
 	if err != nil {
 		log.Logger().Error("[Pull] GetLatestExpenseByUserID Fail", zap.Error(err))
 		needBreak = true
@@ -59,19 +72,24 @@ func (expenseCtx *Context) Pull(ctx context.Context) (needBreak bool, errMsg str
 
 	var resp ExpenseResponse
 	expenses := make(model.Expenses, 0)
+	retryTime := 5
 	for current := startDate; current.Before(endDate) || current.Equal(endDate); current = current.AddDate(0, 1, 0) {
 		log.Logger().Info("[Pull]", zap.String("current", current.Format("2006-01")))
 
-		for pageNum := 1; ; pageNum++ {
+		for pageNum := 1; retryTime > 0; pageNum++ {
 			resp, err = SendRequest(ExpenseRequest{
 				token:      cookie,
 				yearMonth:  current.Format("2006-01"),
 				pageNum:    pageNum,
 				numPerPage: 100,
 			})
+			if err != nil {
+				pageNum--
+				retryTime--
+			}
 			for _, expense := range resp.Obj.List {
 				if expense.FinishTime > latestExpenseTime {
-					expenses = append(expenses, ToExpenseDO(expense, expenseCtx.userID))
+					expenses = append(expenses, ToExpenseDO(expense))
 				}
 			}
 			if pageNum == resp.Obj.TotalPage {
@@ -79,6 +97,10 @@ func (expenseCtx *Context) Pull(ctx context.Context) (needBreak bool, errMsg str
 			}
 		}
 	}
+	if len(expenses) == 0 {
+		return
+	}
+
 	if err = expenses.Create(); err != nil {
 		log.Logger().Error("[Pull] Create Fail", zap.Error(err))
 		needBreak = true
@@ -91,10 +113,13 @@ func (expenseCtx *Context) Pull(ctx context.Context) (needBreak bool, errMsg str
 
 func (expenseCtx *Context) ParseQueryRequest(ctx context.Context) (needBreak bool, errMsg string, err error) {
 	var request struct {
-		StartTime int64  `json:"start_time"`
-		EndTime   int64  `json:"end_time"`
-		Place     string `json:"place"`
-		Action    string `json:"action"`
+		SztuAccount string `json:"sztu_account"`
+		StartTime   int64  `json:"start_time"`
+		EndTime     int64  `json:"end_time"`
+		Page        int    `json:"page"`
+		PerPage     int    `json:"per_page"`
+		Place       string `json:"place"`
+		Action      string `json:"action"`
 	}
 
 	body := expenseCtx.FCtx.Body()
@@ -105,17 +130,25 @@ func (expenseCtx *Context) ParseQueryRequest(ctx context.Context) (needBreak boo
 		return
 	}
 
+	expenseCtx.sztuAccount = request.SztuAccount
 	expenseCtx.startTime = request.StartTime
 	expenseCtx.endTime = request.EndTime
 	expenseCtx.place = request.Place
 	expenseCtx.action = request.Action
-	expenseCtx.userID = expenseCtx.FCtx.Locals("userID").(uint)
+	expenseCtx.page = request.Page
+	expenseCtx.perPage = request.PerPage
+	// expenseCtx.userID = expenseCtx.FCtx.Locals("userID").(uint)
 
 	return
 }
 
 func (expenseCtx *Context) CheckQueryFields(ctx context.Context) (needBreak bool, errMsg string, err error) {
-	if expenseCtx.startTime == 0 || expenseCtx.endTime == 0 || expenseCtx.startTime > expenseCtx.endTime {
+	// if expenseCtx.sztuAccount == "" || expenseCtx.startTime == 0 || expenseCtx.endTime == 0 || expenseCtx.startTime > expenseCtx.endTime {
+	// 	needBreak = true
+	// 	expenseCtx.APIError = api.ErrParseRequest
+	// 	return
+	// }
+	if expenseCtx.sztuAccount == "" {
 		needBreak = true
 		expenseCtx.APIError = api.ErrParseRequest
 		return
@@ -126,11 +159,11 @@ func (expenseCtx *Context) CheckQueryFields(ctx context.Context) (needBreak bool
 
 func (expenseCtx *Context) QueryTable(ctx context.Context) (needBreak bool, errMsg string, err error) {
 	expense := &model.Expense{
-		UserID:       expenseCtx.userID,
+		Sno:          expenseCtx.sztuAccount,
 		ItemName:     expenseCtx.place,
 		TranTypeDesc: expenseCtx.action,
 	}
-	expenses, err := expense.GetExpensesByTimeRange(expenseCtx.startTime, expenseCtx.endTime)
+	expenses, err := expense.GetExpensesByPage(expenseCtx.page, expenseCtx.perPage)
 	if err != nil {
 		log.Logger().Error("[QueryTable] GetExpensesByUserIDAndTimeRange Fail", zap.Error(err))
 		needBreak = true
@@ -138,8 +171,17 @@ func (expenseCtx *Context) QueryTable(ctx context.Context) (needBreak bool, errM
 		return
 	}
 
+	total, err := expense.GetTotalExpense()
+	if err != nil {
+		log.Logger().Error("[QueryTable] GetTotalExpense Fail", zap.Error(err))
+		needBreak = true
+		expenseCtx.APIError = api.ErrQueryExpense
+		return
+	}
+
 	data := Table{
 		ExpenseInfoList: make([]SimpleExpense, 0),
+		Total:           total,
 	}
 	for _, expense := range expenses {
 		data.ExpenseInfoList = append(data.ExpenseInfoList, SimpleExpense{
@@ -156,7 +198,7 @@ func (expenseCtx *Context) QueryTable(ctx context.Context) (needBreak bool, errM
 
 func (expenseCtx *Context) QueryTimeLine(ctx context.Context) (needBreak bool, errMsg string, err error) {
 	expense := &model.Expense{
-		UserID:       expenseCtx.userID,
+		Sno:          expenseCtx.sztuAccount,
 		ItemName:     expenseCtx.place,
 		TranTypeDesc: expenseCtx.action,
 	}
@@ -172,8 +214,9 @@ func (expenseCtx *Context) QueryTimeLine(ctx context.Context) (needBreak bool, e
 		ExpenseInfoList: make([]SimpleTimeExpenseInfo, 0),
 	}
 	for _, line := range timeLine {
+		date, _ := time.Parse(time.RFC3339, line.EventDate)
 		data.ExpenseInfoList = append(data.ExpenseInfoList, SimpleTimeExpenseInfo{
-			ExpenseTime: line.EventDate,
+			ExpenseTime: date.Format("2006-01-02"),
 			Amount:      line.Amount,
 		})
 	}

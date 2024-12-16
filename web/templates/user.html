@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>用户数据</title>
+    <link href="{{ url_for('static', filename='css/bootstrap.min.css') }}" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+<div class="container">
+    <h1 class="mt-5">SZTU消费记录助手</h1>
+    <h2 class="mt-5">{{ student_id }} 的数据</h2>
+
+    <!-- 表单用于更新数据 -->
+    <form action="{{ url_for('update_data', student_id=student_id) }}" method="post">
+        <div class="form-group">
+            <label for="new_data">查询密码(身份证后六位):</label>
+            <input type="password" class="form-control" id="new_data" name="new_data" placeholder="输入密码(身份证后六位)"
+                   required>
+        </div>
+        <button type="submit" class="btn btn-success mb-3">更新数据</button>
+    </form>
+
+    {% if message %}
+    <p>{{ message }}</p>
+    {% else %}
+    {% if tables %}
+    <div class="table-responsive">
+        {% for table in tables %}
+        {{ table|safe }}
+        {% endfor %}
+    </div>
+    <nav aria-label="Page navigation">
+        <ul class="pagination justify-content-center">
+            {% if page > 1 %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('user', student_id=student_id, page=1) }}">首页</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('user', student_id=student_id, page=page-1) }}"
+                   aria-label="Previous">
+                    <span aria-hidden="true">&laquo;</span>
+                </a>
+            </li>
+            {% endif %}
+            {% set start_page = page - 2 if page > 2 else 1 %}
+            {% set end_page = page + 2 if page < total_pages - 2 else total_pages %}
+            {% for p in range(start_page, end_page + 1) %}
+            <li class="page-item {% if p == page %}active{% endif %}">
+                <a class="page-link" href="{{ url_for('user', student_id=student_id, page=p) }}">{{ p }}</a>
+            </li>
+            {% endfor %}
+            {% if page < total_pages %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('user', student_id=student_id, page=page+1) }}" aria-label="Next">
+                    <span aria-hidden="true">&raquo;</span>
+                </a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('user', student_id=student_id, page=total_pages) }}">尾页</a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% else %}
+    <p>{{ message }}</p>
+    {% endif %}
+    {% endif %}
+
+    <!-- 每日消费折线图 -->
+    <div class="mt-5" style="width: 80%; margin: 0 auto;">
+        <h3>每日消费折线图</h3>
+        <canvas id="dailyExpenditureChart" width="400" height="200"></canvas>
+    </div>
+
+    <a href="/" class="btn btn-primary mt-3">返回首页</a>
+</div>
+<!-- 引入本地 Bootstrap JS 和依赖 -->
+<script src="{{ url_for('static', filename='js/jquery-3.2.1.slim.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/popper.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/bootstrap.min.js') }}"></script>
+<!-- 引入 Chart.js 库 -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% if daily_expenditure %}
+<script>
+    var dailyExpenditureData = JSON.parse('{{ daily_expenditure|tojson|safe }}');
+    var dates = dailyExpenditureData.map(function (item) {
+        var dateObj = new Date(item.day);
+        var formattedDate = dateObj.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+        });
+        return formattedDate;
+    });
+    var expenditures = dailyExpenditureData.map(function (item) {
+        return item.total_expenditure;
+    });
+
+    var ctx = document.getElementById('dailyExpenditureChart').getContext('2d');
+    var myChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: dates,
+            datasets: [{
+                label: '每日消费',
+                data: expenditures,
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                borderColor: 'rgba(75, 192, 192, 1)',
+                borderWidth: 1
+            }]
+        },
+    });
+</script>
+{% else %}
+<script>
+    // 处理无数据的情况，例如显示一个默认图表或者其他的处理
+    console.log('No daily expenditure data available.');
+</script>
+{% endif %}

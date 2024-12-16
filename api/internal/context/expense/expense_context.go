@@ -19,6 +19,7 @@ import (
 
 type Table struct {
 	ExpenseInfoList []SimpleExpense `json:"expense_info_list"`
+	Total           int64           `json:"total"`
 }
 
 type SimpleExpense struct {
@@ -38,11 +39,14 @@ type SimpleTimeExpenseInfo struct {
 }
 
 type Base struct {
-	userID    uint
-	startTime int64
-	endTime   int64
-	place     string
-	action    string
+	startTime    int64
+	endTime      int64
+	place        string
+	action       string
+	page         int
+	perPage      int
+	sztuAccount  string
+	sztuPassword string
 }
 
 type Context struct {
@@ -133,12 +137,12 @@ func SendRequest(reqest ExpenseRequest) (response ExpenseResponse, err error) {
 	return
 }
 
-func GetCookie(userID uint) (cookie string, err error) {
-	cookie, err = cache.Rdb.Get(context.Background(), fmt.Sprintf("cookie:%d", userID)).Result()
+func GetCookie(account string, password string) (cookie string, err error) {
+	cookie, err = cache.Rdb.Get(context.Background(), fmt.Sprintf("cookie:%s", account)).Result()
 	if err != nil && err != redis.Nil {
 		return
 	} else if err == redis.Nil {
-		cookie, err = GetCookieFromDB(userID)
+		cookie, err = GetCookieFromGrpc(account, password)
 	} else {
 		if _, err = SendRequest(ExpenseRequest{
 			token:            cookie,
@@ -147,12 +151,18 @@ func GetCookie(userID uint) (cookie string, err error) {
 			numPerPage:       1,
 			queryTotalAmount: false,
 		}); err != nil {
-			cookie, err = GetCookieFromDB(userID)
+			cookie, err = GetCookieFromGrpc(account, password)
 			if err != nil {
 				return
 			}
 		}
 	}
+
+	return
+}
+
+func GetCookieFromGrpc(sztuAccount string, sztuPassword string) (cookie string, err error) {
+	cookie, err = grpcclient.GetCookie(1, sztuAccount, sztuPassword)
 
 	return
 }
@@ -207,9 +217,9 @@ func UpdateCookie(userID uint, account string, password string) (cookie string, 
 	return
 }
 
-func ToExpenseDO(respExpense ExpenseInfo, userID uint) (expenseDO *model.Expense) {
+func ToExpenseDO(respExpense ExpenseInfo) (expenseDO *model.Expense) {
 	expenseDO = &model.Expense{
-		UserID:         userID,
+		// UserID:         userID,
 		Sno:            respExpense.Sno,
 		TranTypeDesc:   respExpense.TranTypeDesc,
 		TranMethodDesc: respExpense.TranMethodDesc,
