@@ -153,6 +153,24 @@ services:
       gorm-migrate:
         condition: service_completed_successfully
 
+  sztuea-web:
+    image: sztuea-web:0.1.0
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    container_name: sztuea-web
+    privileged: true
+    restart: always
+    command: ["poetry", "run", "python", "-u", "main.py"]
+    env_file:
+      - ./secret/web.env
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      sztuea-api:
+        condition: service_healthy
 
 volumes:
   sztuea-mysql-data:

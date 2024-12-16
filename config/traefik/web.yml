@@ -10,4 +10,4 @@ http:
     enterprise-web:
       loadBalancer:
         servers:
-          - url: http://web-frontend
+          - url: http://sztuea-web:5000
