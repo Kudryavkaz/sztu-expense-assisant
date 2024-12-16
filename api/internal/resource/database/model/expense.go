@@ -129,8 +129,8 @@ func (e *Expense) GetExpenseTimeLine(startTime int64, endTime int64) (expenseTim
 	// }
 	err = database.DB.Debug().
 		Model(&Expense{}).
-		Select(`DATE(FROM_UNIXTIME(finish_time/1000)) as event_date, SUM(amount) AS amount`).
-		Where("amount < 0 AND finish_time >= ? AND finish_time <= ?", startTime, endTime).
+		Select(`DATE(FROM_UNIXTIME(finish_time/1000)) as event_date, -SUM(amount) AS amount`).
+		Where("amount < 0 AND tran_method_desc != '后台人工'").
 		Where(e).
 		Group("event_date").
 		Find(&expenseTimeLines).Error
