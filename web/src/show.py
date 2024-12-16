@@ -132,4 +132,4 @@ def show(debug):
             return render_template('user.html', student_id=student_id,
                                    message="No data found for student_id: {}".format(student_id))
 
-    app.run(debug=debug)
+    app.run(host="0.0.0.0", port=5000, debug=debug)
